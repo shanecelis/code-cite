@@ -42,19 +42,6 @@
 #
 # Dependencies: bash, curl, jq, and perl
 
-config_template() {
-cat <<EOF
-# cite config
-#
-#
-
-#modified=1;
-#modifier_name="Shane Celis, @shanecelis"
-#modifier_link="http://twitter.com/shanecelis"
-#year_modified=2016
-EOF
-}
-
 modified_template() {
 # Add prefix (usually whitespace), but don't add it if the line is blank.
 cat <<EOF | perl -pe "s/^(?=\s*\S)/$prefix/g;"
@@ -90,6 +77,41 @@ cat <<EOF | perl -pe "s/^(?=\s*\S)/$prefix/g;"
    [4]: $answer_link
    [5]: $cite_stackoverflow_link
  */
+EOF
+}
+
+# /*
+#    Original code Copyright (c) 2011 cdiggins[1]
+#    Modified code Copyright (c) 2016 Shane Celis, @shanecelis[2]
+#
+#    Licensed under the CC-BY-SA 3.0[3]
+#
+#    Q: ${question_title%%\?}?
+#
+#    Original code posted to this question[4] and answer[5] from
+#    stackoverflow.com where user contributions are licensed under
+#    CC-BY-SA 3.0 with attribution required.
+#
+#    [1]: https://stackoverflow.com/users/184528/cdiggins
+#    [2]: https://twitter.com/shanecelis
+#    [3]: http://creativecommons.org/licenses/by-sa/3.0/
+#    [4]: http://stackoverflow.com/questions/3151702/discriminated-union-in-c-sharp
+#    [5]: http://stackoverflow.com/a/7302957/6454690
+#  */
+
+config_template() {
+    cat <<EOF
+# cite config
+#
+# cite-stackoverflow configuration file.
+
+#modified=1; # modified
+#modified=0; # unmodified
+#modifier_name="Shane Celis, @shanecelis"; # Name of who modified the code.
+#modifier_link="http://twitter.com/shanecelis"; # Link to who modified the code.
+#year_modified=2016;
+#interactive=1; # interactive
+#interactive=0; # non-interactive
 EOF
 }
 
@@ -137,13 +159,6 @@ memoize() {
         shift;
         "$@";
     fi
-}
-
-readarray() {
-    local IFS='\r\n'
-    arrayname="$1";
-    shift;
-    eval "$arrayname=($@)";
 }
 
 display_cache_warning() {
@@ -348,23 +363,4 @@ else
     unmodified_template;
 fi
 
-
-# /*
-#    Original code Copyright (c) 2011 cdiggins[1]
-#    Modified code Copyright (c) 2016 Shane Celis, @shanecelis[2]
-#
-#    Licensed under the CC-BY-SA 3.0[3]
-#
-#    Q: ${question_title%%\?}?
-#
-#    Original code posted to this question[4] and answer[5] from
-#    stackoverflow.com where user contributions are licensed under
-#    CC-BY-SA 3.0 with attribution required.
-#
-#    [1]: https://stackoverflow.com/users/184528/cdiggins
-#    [2]: https://twitter.com/shanecelis
-#    [3]: http://creativecommons.org/licenses/by-sa/3.0/
-#    [4]: http://stackoverflow.com/questions/3151702/discriminated-union-in-c-sharp
-#    [5]: http://stackoverflow.com/a/7302957/6454690
-#  */
 

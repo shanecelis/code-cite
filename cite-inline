@@ -1,0 +1,164 @@
+#!/bin/bash
+# cite-inline
+#
+# Generate a citation for code used from stackoverflow.
+#
+# Example
+# -------
+#
+# 1. Generate a citation.
+#
+# $ cite-stackoverflow cite http://stackoverflow.com/questions/3151702/discriminated-union-in-c-sharp
+# /*
+#    Original code Copyright (c) 2011 cdiggins[1]
+#    Modified code Copyright (c) 2016 Shane Celis, @shanecelis[2]
+#
+#    Licensed under the CC-BY-SA 3.0[3]
+#
+#    Original code posted to this question[4] and answer[5] from
+#    stackoverflow.com where user contributions are licensed under
+#    CC-BY-SA 3.0 with attribution required.
+#
+#    [1]: https://stackoverflow.com/users/184528/cdiggins
+#    [2]: https://twitter.com/shanecelis
+#    [3]: http://creativecommons.org/licenses/by-sa/3.0/
+#    [4]: http://stackoverflow.com/questions/3151702/discriminated-union-in-c-sharp
+#    [5]: http://stackoverflow.com/a/7302957/6454690
+#  */
+#
+# 2. Add citations to a file.
+#
+# If the file LinqExtensions has lines that look like this:
+#
+#     // http://stackoverflow.com/questions/3151702/discriminated-union-in-c-sharp
+#
+# A citation will be inserted after that line by running the following command:
+#
+# $ cite-stackoverflow add-citations LinqExtensions.cs
+# warning: Answer not specified for 5 questions; assuming first answer was used.
+# warning: Used cache for 15 stackexchange API requests.
+#
+# 3. Remove citations from a file.
+#
+# Dependencies: bash, curl, jq, and perl
+
+# YOUR INFORMATION
+# ----------------
+modifier_name="Shane Celis, @shanecelis"
+modifier_link="http://twitter.com/shanecelis"
+year_modified=2016
+
+usage() {
+    echo "usage: cite-inline [-hnvCimM] [-c config-file]" >&2;
+    echo "                          add <files>" >&2;
+    echo "                          remove <files>" >&2;
+    echo "                          clear-cache" >&2;
+    echo " -h      Show usage." >&2;
+    echo " -n      Do a dry-run: Print to stdout. No file changes." >&2;
+    echo " -v      Be verbose." >&2;
+    echo " -C      Do not use a cache. (StackExchange may throttle you if you don't.)" >&2;
+    echo " -m      Mark this code as modified." >&2;
+    echo " -M      Mark this code as not modified." >&2;
+    echo " -a      Who modified this code?" >&2;
+    echo " -l      Where can I find them?" >&2;
+    echo " -y      What year was it modified?" >&2;
+    echo " -p      Prefix each line of template with 'prefix'; used mainly for alignment." >&2;
+    echo " -i      Interactive. Ask which answer if not specified." >&2;
+}
+if [ -z "$ROOT_PID" ]; then
+    export ROOT_PID=$$;
+    trap "display_answer_warning $ROOT_PID; display_cache_warning $ROOT_PID" EXIT
+fi
+# trap 'rc=$?; echo "ERR at line ${LINENO} (rc: $rc)"; exit $rc' ERR
+# trap 'rc=$?; echo "EXIT (rc: $rc)"; exit $rc' EXIT
+set -ueE -o pipefail;
+trap '[ $? -ne 0 ] && echo "error: internal script error at line ${LINENO}."' ERR
+dryrun=0;
+verbose=0;
+# By default let's use the cache.
+use_cache=1;
+interactive=0;
+modified=2;                     # 2 means it's not clear which
+while getopts "inChvmMa:l:y:" arg; do
+    case "$arg" in
+        h) usage;
+           exit 0;;
+        a) modifier_name="$OPTARG";;
+        l) modifier_link="$OPTARG";;
+        m) modified=1;;
+        M) modified=0;;
+        y) year_modified="$OPTARG";;
+        i) interactive=1;;
+        v) verbose=1;;
+        n) dryrun=1;;
+        C) use_cache=0;;
+        *) usage;
+           exit 2;;
+    esac
+done
+# Let's pass these on if we call ourselves.
+declare -a flags=();
+if [ $OPTIND -gt 1 ]; then
+    flags=("${@:0:$((OPTIND))}");
+    echo "flags printf " $(printf "'%s' " "${flags[@]}") >&2;
+fi
+# echo "flags $OPTIND = '${flags[*]}'" >&2;
+echo "@ printf " $(printf "'%s' " "${@}") >&2;
+shift $((OPTIND-1))
+
+if [ $# -lt 2 ]; then
+    usage;
+    exit 2;
+fi
+
+subcommand="$1";
+shift;
+case "$subcommand" in
+    "add")
+        perl_flags="-i";
+        if [ $dryrun -eq 1 ]; then
+            perl_flags="";
+        fi
+        perl $perl_flags -p -e '
+BEGIN{
+  undef $/;
+  @flags=();
+  while ((my $arg = shift) ne "--") {
+    push @flags, $arg;
+  }
+#  print STDERR "flags = ", join(",",@flags), "\n";
+  $quoted_flags = join(" ",map(qq("$_"),@flags));
+}
+s[^\n?((\s*)//\s*(http://stackoverflow.com\S+))\s*$(\s*/\*\s*Original code Copyright[^\*]+\*/\s*$)?\n?]{
+  print STDERR "cite-stackoverflow $quoted_flags cite -p \"$2\" $3";
+  my $citation = `cite-stackoverflow $quoted_flags cite -p "$2" "$3"`;
+  die if $? != 0;
+  "$1\n$citation";
+}mge' \
+        -- ${flags[@]+"${flags[@]}"} -- "$@"; # args
+             # https://stackoverflow.com/a/7577209/6454690
+        ;;
+    "remove")
+        flags="-i";
+        if [ $dryrun -eq 1 ]; then
+            flags="";
+        fi
+        perl $flags -pe '
+BEGIN{undef $/;}
+s!^(\s*//\s*http://stackoverflow.com\S+)\s*/\*\s*Original code Copyright[^\*]+\*/!$1!smg' \
+        "$@";
+        ;;
+#     "grep-references")
+#         perl -ne '
+# print if m!^(\s*//\s*http://stackoverflow.com\S+)!;' "$@";
+#         ;;
+    "clear-cache")
+        if [ -d /tmp/cite-stackoverflow/ ]; then
+            rm /tmp/cite-stackoverflow/*;
+            echo "Cleared cache.";
+        fi
+        ;;
+    *)
+        echo "error: no such subcommand '$subcommand'." >&2;
+        exit 4;
+esac
