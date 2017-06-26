@@ -8,7 +8,7 @@
 #
 # 1. Generate a citation.
 #
-# $ cite-stackoverflow cite http://stackoverflow.com/questions/3151702/discriminated-union-in-c-sharp
+# //$ cite -m -u http://stackoverflow.com/questions/3151702/discriminated-union-in-c-sharp
 # /*
 #    Original code Copyright (c) 2011 cdiggins[1]
 #    Modified code Copyright (c) 2016 Shane Celis, @shanecelis[2]
@@ -42,12 +42,6 @@
 #
 # Dependencies: bash, curl, jq, and perl
 
-# YOUR INFORMATION
-# ----------------
-modifier_name="Shane Celis, @shanecelis"
-modifier_link="http://twitter.com/shanecelis"
-year_modified=2016
-
 usage() {
     echo "usage: cite-inline [-hnvCimM] [-c config-file]" >&2;
     echo "                          add <files>" >&2;
@@ -67,7 +61,7 @@ usage() {
 }
 if [ -z "$ROOT_PID" ]; then
     export ROOT_PID=$$;
-    trap "display_answer_warning $ROOT_PID; display_cache_warning $ROOT_PID" EXIT
+    trap "cite -W $ROOT_PID" EXIT
 fi
 # trap 'rc=$?; echo "ERR at line ${LINENO} (rc: $rc)"; exit $rc' ERR
 # trap 'rc=$?; echo "EXIT (rc: $rc)"; exit $rc' EXIT
@@ -99,8 +93,9 @@ done
 # Let's pass these on if we call ourselves.
 declare -a flags=();
 if [ $OPTIND -gt 1 ]; then
-    flags=("${@:0:$((OPTIND))}");
-    echo "flags printf " $(printf "'%s' " "${flags[@]}") >&2;
+    #flags=("${@:0:$((OPTIND))}");
+    #echo "flags printf " $(printf "'%s' " "${flags[@]}") >&2;
+    :
 fi
 # echo "flags $OPTIND = '${flags[*]}'" >&2;
 echo "@ printf " $(printf "'%s' " "${@}") >&2;
@@ -130,8 +125,9 @@ BEGIN{
   $quoted_flags = join(" ",map(qq("$_"),@flags));
 }
 s[^\n?((\s*)//\s*(http://stackoverflow.com\S+))\s*$(\s*/\*\s*Original code Copyright[^\*]+\*/\s*$)?\n?]{
-  print STDERR "cite-stackoverflow $quoted_flags cite -p \"$2\" $3";
-  my $citation = `cite-stackoverflow $quoted_flags cite -p "$2" "$3"`;
+  my $cmd = "cite $quoted_flags -p \"$2\" -u \"$3\"\n";
+  print STDERR "$cmd";
+  my $citation = `$cmd`;
   die if $? != 0;
   "$1\n$citation";
 }mge' \
