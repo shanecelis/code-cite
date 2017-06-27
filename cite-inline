@@ -43,25 +43,19 @@
 # Dependencies: bash, curl, jq, and perl
 
 usage() {
-    echo "usage: cite-inline [-hnvCimM] [-c config-file]" >&2;
+    echo "usage: cite-inline [-hnv] " >&2;
+    echo "                    -p -- [cite options] -- " >&2;
     echo "                          add <files>" >&2;
     echo "                          remove <files>" >&2;
     echo "                          clear-cache" >&2;
     echo " -h      Show usage." >&2;
     echo " -n      Do a dry-run: Print to stdout. No file changes." >&2;
     echo " -v      Be verbose." >&2;
-    echo " -C      Do not use a cache. (StackExchange may throttle you if you don't.)" >&2;
-    echo " -m      Mark this code as modified." >&2;
-    echo " -M      Mark this code as not modified." >&2;
-    echo " -a      Who modified this code?" >&2;
-    echo " -l      Where can I find them?" >&2;
-    echo " -y      What year was it modified?" >&2;
-    echo " -p      Prefix each line of template with 'prefix'; used mainly for alignment." >&2;
-    echo " -i      Interactive. Ask which answer if not specified." >&2;
+    echo " -p      Pass cite options." >&2;
 }
 if [ -z "$ROOT_PID" ]; then
     export ROOT_PID=$$;
-    trap "cite -W $ROOT_PID" EXIT
+    trap "if ! cite -W $ROOT_PID; then exit $?; fi" EXIT
 fi
 # trap 'rc=$?; echo "ERR at line ${LINENO} (rc: $rc)"; exit $rc' ERR
 # trap 'rc=$?; echo "EXIT (rc: $rc)"; exit $rc' EXIT
@@ -69,23 +63,15 @@ set -ueE -o pipefail;
 trap '[ $? -ne 0 ] && echo "error: internal script error at line ${LINENO}."' ERR
 dryrun=0;
 verbose=0;
+pass_cite_options=0;
 # By default let's use the cache.
-use_cache=1;
-interactive=0;
-modified=2;                     # 2 means it's not clear which
-while getopts "inChvmMa:l:y:" arg; do
+while getopts "hnvp" arg; do
     case "$arg" in
         h) usage;
            exit 0;;
-        a) modifier_name="$OPTARG";;
-        l) modifier_link="$OPTARG";;
-        m) modified=1;;
-        M) modified=0;;
-        y) year_modified="$OPTARG";;
-        i) interactive=1;;
         v) verbose=1;;
         n) dryrun=1;;
-        C) use_cache=0;;
+        p) pass_cite_options=1;;
         *) usage;
            exit 2;;
     esac
@@ -98,9 +84,21 @@ if [ $OPTIND -gt 1 ]; then
     :
 fi
 # echo "flags $OPTIND = '${flags[*]}'" >&2;
-echo "@ printf " $(printf "'%s' " "${@}") >&2;
+#echo "@ printf " $(printf "'%s' " "${@}") >&2;
 shift $((OPTIND-1))
+#echo "@ after " $(printf "'%s' " "${@}") >&2;
 
+
+if [ $pass_cite_options -eq 1 ]; then
+    while [ "$1" != "--" ]; do
+        flags+=( "$1" );
+        shift;
+    done
+    shift;
+fi
+#echo "@ after2 " $(printf "'%s' " "${@}") >&2;
+
+#exit 0;
 if [ $# -lt 2 ]; then
     usage;
     exit 2;
@@ -124,12 +122,17 @@ BEGIN{
 #  print STDERR "flags = ", join(",",@flags), "\n";
   $quoted_flags = join(" ",map(qq("$_"),@flags));
 }
-s[^\n?((\s*)//\s*(http://stackoverflow.com\S+))\s*$(\s*/\*\s*Original code Copyright[^\*]+\*/\s*$)?\n?]{
-  my $cmd = "cite $quoted_flags -p \"$2\" -u \"$3\"\n";
-  print STDERR "$cmd";
+s[^\n?((\s*)//\$ cite ([^\\\n]*)(\\\s*//(.*)$)?)$(\s*/\*\s*Original code Copyright[^\*]+\*/\s*$)?\n?]{
+  #my $cmd = "cite $quoted_flags -p \"$2\" -u \"$3\"\n";
+  my $cmd = "cite $quoted_flags -p \"$2\" $3 $5";
+  print STDERR "$cmd\n";
   my $citation = `$cmd`;
   die if $? != 0;
+if ($citation !~ /^\s*$/) {
   "$1\n$citation";
+} else {
+  "\n";
+}
 }mge' \
         -- ${flags[@]+"${flags[@]}"} -- "$@"; # args
              # https://stackoverflow.com/a/7577209/6454690
@@ -141,7 +144,7 @@ s[^\n?((\s*)//\s*(http://stackoverflow.com\S+))\s*$(\s*/\*\s*Original code Copyr
         fi
         perl $flags -pe '
 BEGIN{undef $/;}
-s!^(\s*//\s*http://stackoverflow.com\S+)\s*/\*\s*Original code Copyright[^\*]+\*/!$1!smg' \
+s!^(\s*//$ cite .*)\s*/\*\s*Original code Copyright[^\*]+\*/!$1!smg' \
         "$@";
         ;;
 #     "grep-references")

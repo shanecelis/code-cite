@@ -48,6 +48,7 @@
 #    Modified code Copyright (c) 2016 Shane Celis, @shanecelis[2]
 #
 #    Licensed under the CC-BY-SA 3.0[3]
+
 #
 #    Q: ${question_title%%\?}?
 #
@@ -77,6 +78,13 @@ config_template() {
 #interactive=0; # non-interactive
 EOF
 }
+if bin_path=$(readlink "$0"); then
+    :
+else
+    bin_path="$0";
+fi
+bin_dir=$(dirname "$bin_path");
+# echo "bin_dir = $bin_dir";
 
 cite_stackoverflow_link="https://gist.github.com/shanecelis/ea2b472af1adfcb995d889f85bd0cb98"
 # stackexchange client id for 'cite-stackoverflow'. Fine to keep as is.
@@ -84,13 +92,17 @@ client_id="10102";
 client_key="nvTB2XGxj5eWuyeMCmJTJA((";
 
 source "$HOME/bin/mo";
-template_dir="$HOME/Projects/cite-stackoverflow/templates/";
+template_dir="$bin_dir/templates/";
 template="stackoverflow";
 year_modified=2016
 modifier_name="Shane Celis"
 modifier_link="https://twitter.com/shanecelis"
-license_name="CC-BY-SA 3.0"
-license_link="http://creativecommons.org/licenses/by-sa/3.0/"
+license="ccbysa"
+license_name=""
+license_link=""
+note=""
+#license_name="CC-BY-SA 3.0"
+#license_link="http://creativecommons.org/licenses/by-sa/3.0/"
 
 inline_link_count=0
 inline_link() {
@@ -104,20 +116,21 @@ ref_link() {
 }
 
 usage() {
-    echo "usage: cite [-hvCimMT] [-n modifier-name] [-l modifier-link] [-y year-modified] [-p prefix]" >&2;
-    echo "                      [-c config] [-t template] [-W pid]" >&2;
-    echo "                      <-u question-or-answer-url| -q question-id | -a answer-id>" >&2;
+    echo "usage: cite [-hvCimMTL] [-n modifier-name] [-y year-modified] [-p prefix]" >&2;
+    echo "            [-l license] [-N notes]" >&2;
+    echo "            [-c config] [-t template] [-W pid] [-e eval-string]" >&2;
+    echo "            <-u url | -q question-id | -a answer-id>" >&2;
     echo " -h      Show usage." >&2;
     echo " -v      Be verbose." >&2;
     echo " -c      Source config file." >&2;
     echo " -C      Do not use a cache. (StackExchange may throttle you if you don't.)" >&2;
     echo " -m      Mark this code as modified." >&2;
     echo " -M      Mark this code as not modified." >&2;
+    echo " -N      Make note of something in copyright message. " >&2;
     echo " -n      Who modified this code?" >&2;
-    echo " -l      Where can I find them?" >&2;
     echo " -y      What year was it modified?" >&2;
     echo " -T      List templates" >&2;
-    echo " -p      Prefix each line of template with 'prefix'; used mainly for alignment." >&2;
+    echo " -p      Prefix each line of template with 'prefix', mainly used for alignment." >&2;
     echo " -i      Interactive. Ask user if not specified." >&2;
 }
 # https://stackoverflow.com/a/17841619/6454690
@@ -239,13 +252,18 @@ prefix="";
 question_id="";
 answer_id="";
 url="";
-config_file="";
-while getopts "W:Tin:Chvmp:Mq:a:l:y:u:t:" arg; do
+config_file="$bin_dir/config.json";
+while getopts "LN:e:W:Tin:Chvmp:Mq:a:l:y:u:t:" arg; do
     case "$arg" in
         h) usage;
            exit 0;;
         n) modifier_name="$OPTARG";;
-        l) modifier_link="$OPTARG";;
+        # N) modifier_link="$OPTARG";;
+        N) note="$OPTARG";;
+        l) license="$OPTARG";;
+        L) echo "Licenses available from $bin_dir/licenses.json: ";
+           cat "$config_file" | jq -r '.licenses | keys | .[]';
+           exit 0;;
         m) modified=1;;
         M) modified=0;;
         y) year_modified="$OPTARG";;
@@ -255,26 +273,32 @@ while getopts "W:Tin:Chvmp:Mq:a:l:y:u:t:" arg; do
         C) use_cache=0;;
         p) prefix="$OPTARG";;
         c) config_file="$OPTARG";
-           if [ -f "$config_file" ]; then
-               . "$config_file";
-           else
+           if ! [ -f "$config_file" ]; then
                echo "error: no config file found '$config_file'." >&2;
                exit 7;
            fi;;
         q) question_id="$OPTARG";;
+        e) eval "$OPTARG";;
         a) answer_id="$OPTARG";;
         u) url="$OPTARG";;
         t) template="$OPTARG";;
         W) display_warnings $OPTARG;
            exit $?;;
         T) echo "Templates available from $template_dir: ";
-           (cd $template_dir; echo *);
+           (cd $template_dir; echo * | tr ' ' '\n');
            exit 0;;
         *) usage;
            exit 2;;
     esac
 done
 shift $((OPTIND-1))
+
+if [ -z "$license_name" ]; then
+    license_name=$(cat "$config_file" | jq -r ".licenses.$license.name");
+fi
+if [ -z "$license_link" ]; then
+    license_link=$(cat "$config_file" | jq -r ".licenses.$license.link");
+fi
 
 if [ -z "$answer_id" ] && [ -z "$question_id" ]; then
     if [ -z "$url" ]; then

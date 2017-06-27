@@ -1,0 +1,14 @@
+{
+    "version" : "v0.1.0",
+    "contributors" : {
+        "shane"  : { "name" : "Shane Celis"         , "link" : "https://twitter.com/shanecelis" }
+    },
+    "licenses" : {
+        "mit"    : { "name" : "MIT License"         , "link" : "https://opensource.org/licenses/MIT" },
+        "apache" : { "name" : "Apache License v2.0" , "link" : "https://www.apache.org/licenses/LICENSE-2.0" },
+        "gpl"    : { "name" : "GPL License v2.0"    , "link" : "https://www.gnu.org/licenses/old-licenses/gpl-2.0.txt" },
+        "ccbysa" : { "name" : "CC-BY-SA 3.0"        , "link" : "http://creativecommons.org/licenses/by-sa/3.0/" },
+
+        "bsd"    : { "name" : "BSD License"         , "link" : "https://opensource.org/licenses/BSD-2-Clause" }
+    }
+}
