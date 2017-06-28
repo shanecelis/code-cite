@@ -11,23 +11,37 @@ rot13() {
 }
 url="";
 screen_name="";
-while getopts "hu:s:" arg; do
+backend=0;
+ignoreopts="";
+if [ "$1" == "ignoreopts" ]; then
+    backend=1;
+    ignoreopts="$2";
+    shift 2;
+    OPTERR=0;
+fi
+while getopts "hu:s:$ignoreopts" arg; do
     case "$arg" in
         h) usage;
            exit 0;;
         u) url="$OPTARG";;
         s) screen_name="$OPTARG";;
-        *) usage >&2;
-           exit 2;;
+        *) if [ $backend -eq 0 ]; then
+               usage >&2;
+               exit 2;
+           fi;;
     esac
 done
 shift $((OPTIND-1))
 if [ $# -ne 0 ]; then
-    echo "error: Too many arguments." >&2;
+    echo "error: Too many arguments: $*" >&2;
     usage >&2;
     exit 2;
 fi
 if ! [ -z "$url" ]; then
+    if ! [[ "$url" =~ twitter\.com ]]; then
+        echo "error: URL not for twitter." >&2;
+        exit 1;
+    fi
     if [ -z "$screen_name" ]; then
         screen_name="$(echo "$url" | perl -ne 'print "$1" if /twitter\.com\/([^\/]*)/;')"
     fi

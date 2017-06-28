@@ -2,13 +2,6 @@
 # stackoverflow
 #
 # code-cite backend
-if bin_path=$(readlink "$0"); then
-    :
-else
-    bin_path="$0";
-fi
-bin_dir=$(dirname "$bin_path");
-# echo "bin_dir = $bin_dir";
 
 code_cite_link="https://gist.github.com/shanecelis/ea2b472af1adfcb995d889f85bd0cb98"
 # stackexchange client id for 'cite-stackoverflow'. Fine to keep as is.
@@ -32,8 +25,11 @@ memoize() {
         ! [ -d "/tmp/cite-stackoverflow" ] && mkdir "/tmp/cite-stackoverflow";
         if [ -f "$path" ]; then
             # keys_used=(${keys_used[@]} $key);
-            echo "$key" >> /tmp/cite-stackoverflow/keys-used.$ROOT_PID;
-            # echo "info: using cache for key $key in process $ROOT_PID." >&2;
+            if [ $backend -eq 1 ]; then
+                echo "$key" >> /tmp/cite-stackoverflow/keys-used.$ROOT_PID;
+            else
+                echo "info: using cache for key $key in process $ROOT_PID." >&2;
+            fi
             cat "$path";
         else
             echo "info: caching key $key." >&2;
@@ -113,30 +109,33 @@ fi
 #set -ueE -o pipefail;
 set -eE -o pipefail;
 trap '[ $? -ne 0 ] && echo "error: internal script error at line ${LINENO}."' ERR
-dryrun=0;
-verbose=0;
 # By default let's use the cache.
 use_cache=1;
 question_id="";
 answer_id="";
 url="";
 stackexchange_site="stackoverflow";
-while getopts "hivCq:e:a:u:W:" arg; do
+ignoreopts="";
+backend=0;
+if [ "$1" == "ignoreopts" ]; then
+    backend=1;
+    ignoreopts="$2";
+    shift 2;
+    OPTERR=0;
+fi
+while getopts "hvCq:a:u:$ignoreopts" arg; do
     case "$arg" in
         h) usage;
            exit 0;;
-        i) interactive=1;;
         v) verbose=1;;
-        # n) dryrun=1;;
         C) use_cache=0;;
         q) question_id="$OPTARG";;
-        e) eval "$OPTARG";;
         a) answer_id="$OPTARG";;
         u) url="$OPTARG";;
-        W) display_warnings $OPTARG;
-           exit $?;;
-        *) usage;
-           exit 2;;
+        *) if [ $backend -eq 0 ]; then
+               usage >&2;
+               exit 2;
+           fi;;
     esac
 done
 shift $((OPTIND-1))
@@ -177,8 +176,11 @@ if [ -z "$answer_id" ]; then
     #answer_id="$(echo "$question_answers_json" | jq -r '.items[0].answer_id')"
     answer_id="NONE";
     no_answer_path=/tmp/cite-stackoverflow/no_answers.$ROOT_PID;
-    echo $question_id >> "$no_answer_path";
-    #echo "warning: Answer not specified for question $question_id; assuming first answer (${answer_id}) was used." >&2;
+    if [ $backend -eq 1 ]; then
+        echo $question_id >> "$no_answer_path";
+    else
+        echo "warning: Answer not specified for question $question_id." >&2;
+    fi
 fi
 
 # Use answer_id
