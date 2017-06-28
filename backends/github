@@ -1,0 +1,89 @@
+#!/bin/bash
+# github
+#
+# backend for code-cite
+
+usage() {
+    echo "usage: github <-u url> <-g gist-id>";
+}
+url="";
+screen_name="";
+backend=0;
+ignoreopts="";
+gist_id="";
+github_user="";
+if [ "$1" == "ignoreopts" ]; then
+    backend=1;
+    ignoreopts="$2";
+    shift 2;
+    OPTERR=0;
+fi
+while getopts "hu:g:$ignoreopts" arg; do
+    case "$arg" in
+        h) usage;
+           exit 0;;
+        u) url="$OPTARG";;
+        g) gist_id="$OPTARG";;
+        *) if [ $backend -eq 0 ]; then
+               usage >&2;
+               exit 2;
+           fi;;
+    esac
+done
+shift $((OPTIND-1))
+if [ $# -ne 0 ]; then
+    echo "error: Too many arguments: $*" >&2;
+    usage >&2;
+    exit 2;
+fi
+if [ -z "$url" ] && [ -z "$gist_id" ]; then
+    echo "error: Need a URL or gist_id." >&2;
+    usage >&2;
+    exit 1;
+fi
+user=shanecelis
+token=0a8c10e5182422658374881ac9a4c2ad8d02e045
+if [ -n "$url" ]; then
+    if ! [[ "$url" =~ github\.com ]]; then
+        echo "error: URL not for github." >&2;
+        exit 1;
+    elif [[ "$url" =~ gist\.github\.com ]] && [ -z "$gist_id" ]; then
+        gist_id="$(echo "$url" | perl -ne 'print "$2" if /gist\.github\.com\/([^\/]*)\/([^\/]*)/;')"
+        if [ -z "$gist_id" ]; then
+            # It could be the first item.
+            gist_id="$(echo "$url" | perl -ne 'print "$1" if /gist\.github\.com\/([^\/]*)/;')";
+        fi
+    else
+        github_user="$(echo "$url" | perl -ne 'print "$1" if /github\.com\/([^\/]*)/;')";
+        github_repo="$(echo "$url" | perl -ne 'print "$2" if /github\.com\/([^\/]*)\/([^\/]*)/;')"
+    fi
+fi
+if [ -n "$gist_id" ]; then
+    gist_json="$(curl -su $user:$token https://api.github.com/gists/$gist_id)"
+    # 2013-06-20T11:45:51Z
+    # %Y-%m-%d%X%H:%M:%S%Z
+    date="$(echo $gist_json | jq -r '.created_at')"
+    year_created=$(date -jf "%Y-%m-%dT%H:%M:%SZ" "$date" "+%Y")
+    github_user="$(echo $gist_json | jq -r '.owner.login')"
+    if [ -z "$url" ]; then
+        url="$(echo $gist_json | jq -r '.html_url')"
+    fi
+fi
+if [ -n "$github_repo" ]; then
+    repo_json="$(curl -su $user:$token https://api.github.com/repos/$github_user/$github_repo)"
+    # echo $repo_json | jq
+    date="$(echo $repo_json | jq -r '.created_at')"
+    year_created=$(date -jf "%Y-%m-%dT%H:%M:%SZ" "$date" "+%Y")
+fi
+user_json="$(curl -su $user:$token https://api.github.com/users/$github_user)"
+author_name="$(echo $user_json | jq -r '.name | select (. != null)')"
+if [ -z "$author_name" ]; then
+    author_name="$github_user";
+fi
+author_link="$(echo $user_json | jq -r '.html_url')"
+cat <<EOF
+author_name="$author_name"
+author_link="$author_link"
+year_created="$year_created"
+url="$url"
+EOF

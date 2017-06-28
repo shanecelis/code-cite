@@ -47,9 +47,17 @@ if ! [ -z "$url" ]; then
     fi
     status_id="$(echo "$url" | perl -ne 'print "$2" if /twitter\.com\/([^\/]*)\/status\/(\d+)/;')"
 fi
+if [ -z "$url" ] && [ -z "$screen_name" ]; then
+    echo "error: URL or screen_name required." >&2;
+    exit 4;
+fi
 consumer_key="OmrRk9Ge0lJfxQWBE4uUa9Qg9";
 consumer_secret_rot13="docWBPknOCKhHyPxh4EnPzpQylVBvyraurnGR9Ar12Zs5EqqHR";
 consumer_secret=$(rot13 $consumer_secret_rot13)
+if ! [ -x "$(command -v twurl)" ]; then
+    echo "error: twurl command is not in path." >&2;
+    exit 3;
+fi
 if ! twurl accounts > /dev/null; then
     twurl authorize --consumer-key "$consumer_key" --consumer-secret "$consumer_secret"
 fi

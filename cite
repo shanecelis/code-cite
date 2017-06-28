@@ -8,7 +8,7 @@
 #
 # 1. Generate a citation.
 #
-# $ cite http://stackoverflow.com/questions/3151702/discriminated-union-in-c-sharp
+# $ cite -u http://stackoverflow.com/questions/3151702/discriminated-union-in-c-sharp
 # /*
 #    Original code Copyright (c) 2011 cdiggins[1]
 #    Modified code Copyright (c) 2016 Shane Celis, @shanecelis[2]
@@ -30,11 +30,11 @@
 #
 # If the file LinqExtensions has lines that look like this:
 #
-#     // http://stackoverflow.com/questions/3151702/discriminated-union-in-c-sharp
+#     //$ cite http://stackoverflow.com/questions/3151702/discriminated-union-in-c-sharp
 #
 # A citation will be inserted after that line by running the following command:
 #
-# $ cite-stackoverflow add-citations LinqExtensions.cs
+# $ cite-inline add LinqExtensions.cs
 # warning: Answer not specified for 5 questions; assuming first answer was used.
 # warning: Used cache for 15 stackexchange API requests.
 #
@@ -42,25 +42,6 @@
 #
 # Dependencies: bash, curl, jq, mo, and perl
 
-# /*
-#    Original code Copyright (c) 2011 cdiggins[1]
-#    Modified code Copyright (c) 2016 Shane Celis, @shanecelis[2]
-#
-#    Licensed under the CC-BY-SA 3.0[3]
-
-#
-#    Q: ${question_title%%\?}?
-#
-#    Original code posted to this question[4] and answer[5] from
-#    stackoverflow.com where user contributions are licensed under
-#    CC-BY-SA 3.0 with attribution required.
-#
-#    [1]: https://stackoverflow.com/users/184528/cdiggins
-#    [2]: https://twitter.com/shanecelis
-#    [3]: http://creativecommons.org/licenses/by-sa/3.0/
-#    [4]: http://stackoverflow.com/questions/3151702/discriminated-union-in-c-sharp
-#    [5]: http://stackoverflow.com/a/7302957/6454690
-#  */
 if ! bin_path=$(readlink "$0"); then
     bin_path="$0";
 fi
@@ -71,18 +52,16 @@ code_cite_link="https://github.com/shanecelis/code-cite"
 client_id="10102";
 client_key="nvTB2XGxj5eWuyeMCmJTJA((";
 
-source "$HOME/bin/mo";
+source "$HOME/bin/mo";          # XXX This should be packed with code-cite.
 template_dir="$bin_dir/templates/";
 template="stackoverflow";
 year_modified=2016
 modifier_name="Shane Celis"
 modifier_link="https://twitter.com/shanecelis"
-license="ccbysa"
+license="none"
 license_name=""
 license_link=""
 note=""
-#license_name="CC-BY-SA 3.0"
-#license_link="http://creativecommons.org/licenses/by-sa/3.0/"
 
 inline_link_count=0
 inline_link() {
@@ -96,14 +75,13 @@ ref_link() {
 }
 
 usage() {
-    echo "usage: cite [-hvCimMTL] [-n modifier-name] [-U modifier-link] [-y year-modified] [-p prefix]" >&2;
+    echo "usage: cite [-hvimMTL] [-n modifier-name] [-U modifier-link] [-y year-modified] [-p prefix]" >&2;
     echo "            [-l license] [-N notes] [-a author-name] [-A author-link]" >&2;
     echo "            [-c config] [-t template] [-W pid] [-e eval-string]" >&2;
     echo "            <-u url | -q question-id | -a answer-id>" >&2;
     echo " -h      Show usage." >&2;
     echo " -v      Be verbose." >&2;
-    echo " -c      Source config file." >&2;
-    echo " -C      Do not use a cache. (StackExchange may throttle you if you don't.)" >&2;
+    echo " -c      Use this config file." >&2;
     echo " -m      Mark this code as modified." >&2;
     echo " -M      Mark this code as not modified." >&2;
     echo " -N      Make note of something in copyright message. " >&2;
@@ -156,7 +134,8 @@ display_modified_warning() {
     modified_path=/tmp/cite-stackoverflow/modified.$pid;
     if [ -f "$modified_path" ]; then
         if [ $verbose -eq 1 ]; then
-            echo "warning: not specified whether code was modified for following questions: $(cat $modified_path | sort | uniq | tr '\n' ',')" >&2;
+            echo "warning: not specified whether code was modified for following citations: " >&2;
+            cat $modified_path | sort | uniq >&2;
         else
             count=$(cat "$modified_path" | sort | uniq | wc -l | xargs); # xargs is working like trim
             echo "warning: Not specified whether code was modified for $count cases." >&2;
@@ -205,7 +184,7 @@ answer_id="";
 url="";
 config_file="$bin_dir/config.json";
 stackexchange_site="stackoverflow";
-opts="a:A:U:LN:e:W:Tin:Chvmp:Mq:a:l:y:u:t:";
+opts="a:A:U:LN:e:W:Tin:Chvmp:Mq:a:l:y:u:t:g:";
 while getopts "$opts" arg; do
     case "$arg" in
         h) usage;
@@ -242,11 +221,30 @@ while getopts "$opts" arg; do
         T) echo "Templates available from $template_dir: ";
            (cd $template_dir; echo * | tr ' ' '\n');
            exit 0;;
-        *) usage;
+        \?) usage;
            exit 2;;
+        *) # Let this pass thru. It may be options to our backends.
+           :;;
     esac
 done
 #shift $((OPTIND-1))
+declare -a applicable_backends=()
+for backend in $bin_dir/backends/*; do
+    if output="$($backend ignoreopts "$opts" "$@" 2>/dev/null)"; then
+        applicable_backends+=( $(basename "$backend") );
+        if [ $verbose -eq 1 ]; then
+            echo "info: using $(basename $backend) as backend." >&2;
+        fi
+        eval "$output";
+        # break;
+    fi
+done
+if [ "${#applicable_backends[@]}" -gt 1 ]; then
+    echo "warning: multiple backends would work: " >&2;
+    for b in "${applicable_backends[@]}"; do
+        echo $b >&2;
+    done
+fi
 
 if [ -z "$license_name" ]; then
     license_name=$(cat "$config_file" | jq -r ".licenses.$license.name");
@@ -254,12 +252,6 @@ fi
 if [ -z "$license_link" ]; then
     license_link=$(cat "$config_file" | jq -r ".licenses.$license.link");
 fi
-
-for backend in $bin_dir/backends/*; do
-    if output="$($backend ignoreopts "$opts" "$@" 2> /dev/null)"; then
-       eval "$output";
-    fi
-done
 
 if [ $modified -eq 2 ]; then
     if [ $interactive -eq 1 ]; then
@@ -273,7 +265,7 @@ if [ $modified -eq 2 ]; then
     else
         # echo "warning: assuming the code has not been modified." >&2;
         modified_path=/tmp/cite-stackoverflow/modified.$ROOT_PID;
-        echo $question_id >> "$modified_path";
+        echo "$(basename $0) $*" >> "$modified_path";
         modified=0;
     fi
 fi
@@ -322,7 +314,7 @@ fi
 # 2. It'd fold without adding enough spaces to have the text flush.
 #mo "$template" | fold -sw $((80 - prefix_length)) | perl -pe "s/^(?=\s*\S)/$prefix/g;";
 if [ -f "$template_dir/$template" ]; then
-    mo "$template_dir/$template" | perl -pe "s/^(?=\s*\S)/$prefix/g;";
+    mo --fail-not-set "$template_dir/$template" | perl -pe "s/^(?=\s*\S)/$prefix/g;";
 else
     echo "error: no template $template_dir/$template" >&2;
     exit 9;

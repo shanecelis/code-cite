@@ -13,8 +13,6 @@ usage() {
     echo "            <-u url | -q question-id | -a answer-id>" >&2;
     echo " -C      Do not use a cache. (StackExchange may throttle you if you don't.)" >&2;
 }
-# https://stackoverflow.com/a/17841619/6454690
-function join_by { local IFS="$1"; shift; echo "$*"; }
 
 memoize() {
     if [ $use_cache -eq 1 ]; then
@@ -123,7 +121,7 @@ if [ "$1" == "ignoreopts" ]; then
     shift 2;
     OPTERR=0;
 fi
-while getopts "hvCq:a:u:$ignoreopts" arg; do
+while getopts "W:hvCq:a:u:$ignoreopts" arg; do
     case "$arg" in
         h) usage;
            exit 0;;
@@ -131,6 +129,8 @@ while getopts "hvCq:a:u:$ignoreopts" arg; do
         C) use_cache=0;;
         q) question_id="$OPTARG";;
         a) answer_id="$OPTARG";;
+        W) display_warnings $OPTARG;
+           exit $?;;
         u) url="$OPTARG";;
         *) if [ $backend -eq 0 ]; then
                usage >&2;
@@ -223,4 +223,5 @@ question_id="$question_id"
 author_name="$author_name"
 author_link="$author_link"
 year_created="$year_created"
+license="ccbysa"
 EOF

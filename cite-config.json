@@ -5,11 +5,11 @@
     },
     "licenses" : {
         "mit"    : { "name" : "MIT License"         , "link" : "https://opensource.org/licenses/MIT" },
+        "bsd"    : { "name" : "BSD License"         , "link" : "https://opensource.org/licenses/BSD-2-Clause" },
         "apache" : { "name" : "Apache License v2.0" , "link" : "https://www.apache.org/licenses/LICENSE-2.0" },
         "gpl"    : { "name" : "GPL License v2.0"    , "link" : "https://www.gnu.org/licenses/old-licenses/gpl-2.0.txt" },
         "ccbysa" : { "name" : "CC-BY-SA 3.0"        , "link" : "http://creativecommons.org/licenses/by-sa/3.0/" },
-        "none"   : { "name" : ""                    , "link" : "" },
 
-        "bsd"    : { "name" : "BSD License"         , "link" : "https://opensource.org/licenses/BSD-2-Clause" }
+        "none"   : { "name" : ""                    , "link" : "" }
     }
 }
