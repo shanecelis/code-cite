@@ -1,0 +1,224 @@
+#!/bin/bash
+# stackoverflow
+#
+# code-cite backend
+if bin_path=$(readlink "$0"); then
+    :
+else
+    bin_path="$0";
+fi
+bin_dir=$(dirname "$bin_path");
+# echo "bin_dir = $bin_dir";
+
+code_cite_link="https://gist.github.com/shanecelis/ea2b472af1adfcb995d889f85bd0cb98"
+# stackexchange client id for 'cite-stackoverflow'. Fine to keep as is.
+client_id="10102";
+client_key="nvTB2XGxj5eWuyeMCmJTJA((";
+
+usage() {
+    echo "usage: stackoverflow [-hC]" >&2;
+    echo "            <-u url | -q question-id | -a answer-id>" >&2;
+    echo " -C      Do not use a cache. (StackExchange may throttle you if you don't.)" >&2;
+}
+# https://stackoverflow.com/a/17841619/6454690
+function join_by { local IFS="$1"; shift; echo "$*"; }
+
+memoize() {
+    if [ $use_cache -eq 1 ]; then
+        # You will get throttled by stackexchange if you aren't careful with your queries.
+        key="$1";
+        shift;
+        path="/tmp/cite-stackoverflow/$key";
+        ! [ -d "/tmp/cite-stackoverflow" ] && mkdir "/tmp/cite-stackoverflow";
+        if [ -f "$path" ]; then
+            # keys_used=(${keys_used[@]} $key);
+            echo "$key" >> /tmp/cite-stackoverflow/keys-used.$ROOT_PID;
+            # echo "info: using cache for key $key in process $ROOT_PID." >&2;
+            cat "$path";
+        else
+            echo "info: caching key $key." >&2;
+            "$@" | tee "$path";
+        fi
+    else
+        key="$1";
+        shift;
+        path="/tmp/cite-stackoverflow/$key";
+        if [ -f "$path" ]; then
+            rm "$path";
+        fi
+        "$@";
+    fi
+}
+
+display_cache_warning() {
+    pid=$1;
+    keys_used_path=/tmp/cite-stackoverflow/keys-used.$pid;
+    # echo "checking $keys_used_path" >&2;
+    if [ -f "$keys_used_path" ]; then
+    # if [ ${#keys_used[@]} -ne 0 ]; then
+        # keys="$(join_by , ${keys_used[@]})";
+        if [ $verbose -eq 1 ]; then
+            echo "info: Used cache for keys: $(cat $keys_used_path | sort | uniq | tr '\n' ',')" >&2;
+        else
+            count=$(cat $keys_used_path | sort | uniq | wc -l | xargs); # xargs is working like trim
+            echo "warning: Used cache for $count stackexchange API requests." >&2;
+        fi
+        rm "$keys_used_path";
+        return 1;
+    fi
+    return 0;
+}
+
+display_answer_warning() {
+    pid=$1;
+    no_answer_path=/tmp/cite-stackoverflow/no_answers.$pid;
+    if [ -f "$no_answer_path" ]; then
+        if [ $verbose -eq 1 ]; then
+            echo "warning: Answer not specified for following questions: $(cat $no_answer_path | sort | uniq | tr '\n' ',')" >&2;
+        else
+            count=$(cat "$no_answer_path" | sort | uniq | wc -l | xargs); # xargs is working like trim
+            echo "warning: Answer not specified for $count questions." >&2;
+        fi
+        rm "$no_answer_path";
+        return 1;
+    fi
+    return 0;
+}
+
+display_warnings() {
+    err=0;
+    trap - ERR
+    set +e;
+    display_answer_warning $1;
+    let "err|=$?"
+    display_cache_warning $1;
+    let "err|=$?"
+    set -e;
+    return $err;
+}
+
+stackexchange-query() {
+    query="$1";
+    memoize_key="${query//\//-}";
+    # echo "memo $memoize_key for query $query args $*" >&2;
+    memoize "$memoize_key" curl -s 'https://api.stackexchange.com/2.2/'"$query"'?order=desc&sort=votes&site='"$stackexchange_site"'&key='"$client_key" | gzcat
+}
+
+if [ -z "$ROOT_PID" ]; then
+    export ROOT_PID=$$;
+    trap "display_warnings $ROOT_PID" EXIT
+fi
+# trap 'rc=$?; echo "ERR at line ${LINENO} (rc: $rc)"; exit $rc' ERR
+# trap 'rc=$?; echo "EXIT (rc: $rc)"; exit $rc' EXIT
+#set -ueE -o pipefail;
+set -eE -o pipefail;
+trap '[ $? -ne 0 ] && echo "error: internal script error at line ${LINENO}."' ERR
+dryrun=0;
+verbose=0;
+# By default let's use the cache.
+use_cache=1;
+question_id="";
+answer_id="";
+url="";
+stackexchange_site="stackoverflow";
+while getopts "hivCq:e:a:u:W:" arg; do
+    case "$arg" in
+        h) usage;
+           exit 0;;
+        i) interactive=1;;
+        v) verbose=1;;
+        # n) dryrun=1;;
+        C) use_cache=0;;
+        q) question_id="$OPTARG";;
+        e) eval "$OPTARG";;
+        a) answer_id="$OPTARG";;
+        u) url="$OPTARG";;
+        W) display_warnings $OPTARG;
+           exit $?;;
+        *) usage;
+           exit 2;;
+    esac
+done
+shift $((OPTIND-1))
+
+if [ -z "$answer_id" ] && [ -z "$question_id" ]; then
+    if [ -z "$url" ]; then
+        echo "error: URL, question-id, or answer-id required." >&2;
+        usage;
+        exit 2;
+    else
+        site="$(echo "$url" | perl -ne 'print "$1" if /\/\/(\S+)\.stackexchange\.com\//;')"
+        if ! [ -z "$site" ]; then
+            stackexchange_site="$site";
+        fi
+        question_id="$(echo "$url" | perl -ne 'print "$1" if /stack(?:overflow|exchange)\.com\/questions\/(\d+)/;')"
+        answer_id="$(echo "$url" | perl -ne 'print "$1" if /stack(?:overflow|exchange)\.com\/a\/(\d+)/;')"
+
+        if [ -z "$answer_id" ] && [ -z "$question_id" ]; then
+            echo "error: unable to determine answer-id or question-id from url $url" >&2;
+            exit 1;
+        fi
+    fi
+fi
+
+if [ -z "$question_id" ]; then
+    answer_json="$(stackexchange-query "answers/$answer_id")"
+    question_id="$(echo "$answer_json" | jq -r '.items[0].question_id')"
+fi
+
+
+# Use question_id
+# ---------------
+question_answers_json="$(stackexchange-query 'questions/'$question_id'/answers')"
+question_json="$(stackexchange-query 'questions/'$question_id)"
+question_link="$(echo "$question_json" | jq -r '.items[0].link')"
+question_title="$(echo "$question_json" | jq -r '.items[0].title')"
+if [ -z "$answer_id" ]; then
+    #answer_id="$(echo "$question_answers_json" | jq -r '.items[0].answer_id')"
+    answer_id="NONE";
+    no_answer_path=/tmp/cite-stackoverflow/no_answers.$ROOT_PID;
+    echo $question_id >> "$no_answer_path";
+    #echo "warning: Answer not specified for question $question_id; assuming first answer (${answer_id}) was used." >&2;
+fi
+
+# Use answer_id
+# -------------
+if [ -z "$answer_id" ]; then
+    echo "error: no answer ID determined." >&2;
+    exit 3;
+fi
+
+if [ "$answer_id" != "NONE" ]; then
+    answer_json="$(stackexchange-query 'answers/'$answer_id)"
+    author_link="$(echo "$answer_json" | jq -r '.items[0].owner.link')"
+    answer_link="https://stackoverflow.com/a/$answer_id";
+    author_name="$(echo "$answer_json" | jq -r '.items[0].owner.display_name')"
+    question_id="$(echo "$answer_json" | jq -r '.items[0].question_id')"
+    # answer_id="$(echo "$answer_json" | jq -r '.items[0].answer_id')"
+    if ! year_created="$(date -jr $(echo "$answer_json" | jq -r '.items[0].creation_date') '+%Y')"; then
+        echo "error: not able to parse date from the following JSON." >&2;
+        echo "$answer_json" >&2;
+        exit 1;
+    fi
+else
+    author_name="$(echo "$question_json" | jq -r '.items[0].owner.display_name')"
+    author_link="$(echo "$question_json" | jq -r '.items[0].owner.link')"
+    answer_id="";
+    if ! year_created="$(date -jr $(echo "$question_json" | jq -r '.items[0].creation_date') '+%Y')"; then
+        echo "error: not able to parse date from the following JSON." >&2;
+        echo "$question_json" >&2;
+        exit 8;
+    fi
+
+fi
+
+cat <<EOF
+question_link="$question_link"
+question_title="$question_title"
+answer_link="$answer_link"
+answer_id="$answer_id"
+question_id="$question_id"
+author_name="$author_name"
+author_link="$author_link"
+year_created="$year_created"
+EOF

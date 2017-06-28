@@ -1,0 +1,56 @@
+#!/bin/bash
+# twitter
+#
+# code-cite backend.
+usage() {
+    echo "usage: twitter <-u url> <-s screen-name>"
+}
+rot13() {
+    # https://stackoverflow.com/questions/5442436/using-rot13-and-tr-command-for-having-an-encrypted-email-address
+    echo "$1" | tr '[A-Za-z]' '[N-ZA-Mn-za-m]'
+}
+url="";
+screen_name="";
+while getopts "hu:s:" arg; do
+    case "$arg" in
+        h) usage;
+           exit 0;;
+        u) url="$OPTARG";;
+        s) screen_name="$OPTARG";;
+        *) usage >&2;
+           exit 2;;
+    esac
+done
+shift $((OPTIND-1))
+if [ $# -ne 0 ]; then
+    echo "error: Too many arguments." >&2;
+    usage >&2;
+    exit 2;
+fi
+if ! [ -z "$url" ]; then
+    if [ -z "$screen_name" ]; then
+        screen_name="$(echo "$url" | perl -ne 'print "$1" if /twitter\.com\/([^\/]*)/;')"
+    fi
+    status_id="$(echo "$url" | perl -ne 'print "$2" if /twitter\.com\/([^\/]*)\/status\/(\d+)/;')"
+fi
+consumer_key="OmrRk9Ge0lJfxQWBE4uUa9Qg9";
+consumer_secret_rot13="docWBPknOCKhHyPxh4EnPzpQylVBvyraurnGR9Ar12Zs5EqqHR";
+consumer_secret=$(rot13 $consumer_secret_rot13)
+if ! twurl accounts > /dev/null; then
+    twurl authorize --consumer-key "$consumer_key" --consumer-secret "$consumer_secret"
+fi
+show_json="$(twurl "/1.1/users/show.json?screen_name=$screen_name&include_entities=false")";
+author_name="$(echo $show_json | jq -r '.name')"
+author_link="https://twitter.com/$screen_name"
+# Date Example
+# Fri Apr 14 21:19:59 +0000 2017
+# %a  %b  %d %H:%M:%S +0000 %Y
+date="$(twurl "/1.1/statuses/show.json?id=$status_id&include_entities=false" | jq -r '.created_at')";
+year_created=$(date -jf "%a  %b  %d %H:%M:%S +0000 %Y" "$date" "+%Y")
+cat <<EOF
+author_name="$author_name"
+author_link="$author_link"
+year_created="$year_created"
+url="$url"
+EOF
+
