@@ -86,7 +86,7 @@ fi
 bin_dir=$(dirname "$bin_path");
 # echo "bin_dir = $bin_dir";
 
-cite_stackoverflow_link="https://gist.github.com/shanecelis/ea2b472af1adfcb995d889f85bd0cb98"
+code_cite_link="https://gist.github.com/shanecelis/ea2b472af1adfcb995d889f85bd0cb98"
 # stackexchange client id for 'cite-stackoverflow'. Fine to keep as is.
 client_id="10102";
 client_key="nvTB2XGxj5eWuyeMCmJTJA((";
@@ -116,8 +116,8 @@ ref_link() {
 }
 
 usage() {
-    echo "usage: cite [-hvCimMTL] [-n modifier-name] [-y year-modified] [-p prefix]" >&2;
-    echo "            [-l license] [-N notes]" >&2;
+    echo "usage: cite [-hvCimMTL] [-n modifier-name] [-U modifier-link] [-y year-modified] [-p prefix]" >&2;
+    echo "            [-l license] [-N notes] [-a author-name] [-A author-link]" >&2;
     echo "            [-c config] [-t template] [-W pid] [-e eval-string]" >&2;
     echo "            <-u url | -q question-id | -a answer-id>" >&2;
     echo " -h      Show usage." >&2;
@@ -153,7 +153,12 @@ memoize() {
             "$@" | tee "$path";
         fi
     else
+        key="$1";
         shift;
+        path="/tmp/cite-stackoverflow/$key";
+        if [ -f "$path" ]; then
+            rm "$path";
+        fi
         "$@";
     fi
 }
@@ -227,7 +232,7 @@ stackexchange-query() {
     query="$1";
     memoize_key="${query//\//-}";
     # echo "memo $memoize_key for query $query args $*" >&2;
-    memoize "$memoize_key" curl -s 'https://api.stackexchange.com/2.2/'"$query"'?order=desc&sort=votes&site=stackoverflow&key='"$client_key" | gzcat
+    memoize "$memoize_key" curl -s 'https://api.stackexchange.com/2.2/'"$query"'?order=desc&sort=votes&site='"$stackexchange_site"'&key='"$client_key" | gzcat
 }
 
 if [ -z "$ROOT_PID" ]; then
@@ -253,12 +258,13 @@ question_id="";
 answer_id="";
 url="";
 config_file="$bin_dir/config.json";
-while getopts "LN:e:W:Tin:Chvmp:Mq:a:l:y:u:t:" arg; do
+stackexchange_site="stackoverflow";
+while getopts "a:A:U:LN:e:W:Tin:Chvmp:Mq:a:l:y:u:t:" arg; do
     case "$arg" in
         h) usage;
            exit 0;;
         n) modifier_name="$OPTARG";;
-        # N) modifier_link="$OPTARG";;
+        U) modifier_link="$OPTARG";;
         N) note="$OPTARG";;
         l) license="$OPTARG";;
         L) echo "Licenses available from $bin_dir/licenses.json: ";
@@ -266,6 +272,8 @@ while getopts "LN:e:W:Tin:Chvmp:Mq:a:l:y:u:t:" arg; do
            exit 0;;
         m) modified=1;;
         M) modified=0;;
+        a) author_name="$OPTARG";;
+        A) author_link="$OPTARG";;
         y) year_modified="$OPTARG";;
         i) interactive=1;;
         v) verbose=1;;
@@ -306,8 +314,12 @@ if [ -z "$answer_id" ] && [ -z "$question_id" ]; then
         usage;
         exit 2;
     else
-        question_id="$(echo "$url" | perl -ne 'print "$1" if /stackoverflow.com\/questions\/(\d+)/;')"
-        answer_id="$(echo "$url" | perl -ne 'print "$1" if /stackoverflow.com\/a\/(\d+)/;')"
+        site="$(echo "$url" | perl -ne 'print "$1" if /\/\/(\S+)\.stackexchange\.com\//;')"
+        if ! [ -z "$site" ]; then
+            stackexchange_site="$site";
+        fi
+        question_id="$(echo "$url" | perl -ne 'print "$1" if /stack(?:overflow|exchange)\.com\/questions\/(\d+)/;')"
+        answer_id="$(echo "$url" | perl -ne 'print "$1" if /stack(?:overflow|exchange)\.com\/a\/(\d+)/;')"
 
         if [ -z "$answer_id" ] && [ -z "$question_id" ]; then
             echo "error: unable to determine answer-id or question-id from url $url" >&2;

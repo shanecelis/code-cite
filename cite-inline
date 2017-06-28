@@ -124,7 +124,7 @@ BEGIN{
 }
 s[^\n?((\s*)//\$ cite ([^\\\n]*)(\\\s*//(.*)$)?)$(\s*/\*\s*Original code Copyright[^\*]+\*/\s*$)?\n?]{
   #my $cmd = "cite $quoted_flags -p \"$2\" -u \"$3\"\n";
-  my $cmd = "cite $quoted_flags -p \"$2\" $3 $5";
+  my $cmd = "cite -p \"$2\" $3 $5 $quoted_flags";
   print STDERR "$cmd\n";
   my $citation = `$cmd`;
   die if $? != 0;
