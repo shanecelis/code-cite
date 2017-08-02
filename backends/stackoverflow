@@ -181,7 +181,7 @@ fi
 question_answers_json="$(stackexchange-query 'questions/'$question_id'/answers')"
 question_json="$(stackexchange-query 'questions/'$question_id)"
 question_link="$(echo "$question_json" | jq -r '.items[0].link')"
-question_title="$(echo "$question_json" | jq -r '.items[0].title' | perl -pe 's/\\`/"/g;')";
+question_title="$(echo "$question_json" | jq -r '.items[0].title' | perl -pe "s/\`/\'/g;")";
 if [ -z "$answer_id" ]; then
     #answer_id="$(echo "$question_answers_json" | jq -r '.items[0].answer_id')"
     answer_id="NONE";
