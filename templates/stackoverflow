@@ -13,11 +13,11 @@
    NOTE: {{note}}
 {{/note}}
 
-   [{{ref_link}}]: {{author_link}} {{#modifier_name}}
-   [{{ref_link}}]: {{modifier_link}} {{/modifier_name}}{{#license_name}}
+   [{{ref_link}}]: {{author_link}}{{#modifier_name}}
+   [{{ref_link}}]: {{modifier_link}}{{/modifier_name}}{{#license_name}}
    [{{ref_link}}]: {{license_link}}{{/license_name}}{{#question_link}}
    [{{ref_link}}]: {{question_link}}{{/question_link}}{{^question_link}}
    [{{ref_link}}]: {{url}}{{/question_link}}{{#answer_link}}
-   [{{ref_link}}]: {{answer_link}} {{/answer_link}}
+   [{{ref_link}}]: {{answer_link}}{{/answer_link}}
    [{{ref_link}}]: {{code_cite_link}}
 */
