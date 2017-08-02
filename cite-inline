@@ -43,7 +43,7 @@
 # Dependencies: bash, curl, jq, and perl
 
 usage() {
-    echo "usage: cite-inline [-hnv] " >&2;
+    echo "usage: cite-inline [-hnvk] " >&2;
     echo "                    -p -- [cite options] -- " >&2;
     echo "                          add <files>" >&2;
     echo "                          remove <files>" >&2;
@@ -52,6 +52,7 @@ usage() {
     echo " -n      Do a dry-run: Print to stdout. No file changes." >&2;
     echo " -v      Be verbose." >&2;
     echo " -p      Pass cite options." >&2;
+    echo " -k      Keep cite line." >&2;
 }
 if [ -z "$ROOT_PID" ]; then
     export ROOT_PID=$$;
@@ -64,13 +65,15 @@ trap '[ $? -ne 0 ] && echo "error: internal script error at line ${LINENO}."' ER
 dryrun=0;
 verbose=0;
 pass_cite_options=0;
+keep_cite_line=0;
 # By default let's use the cache.
-while getopts "hnvp" arg; do
+while getopts "hnvpk" arg; do
     case "$arg" in
         h) usage;
            exit 0;;
         v) verbose=1;;
         n) dryrun=1;;
+        k) keep_cite_line=1;;
         p) pass_cite_options=1;;
         *) usage;
            exit 2;;
@@ -108,11 +111,12 @@ subcommand="$1";
 shift;
 case "$subcommand" in
     "add")
-        perl_flags="-i";
+        perl_flags="-i.bak";
         if [ $dryrun -eq 1 ]; then
             perl_flags="";
         fi
-        perl $perl_flags -p -e '
+        # tmpfile="$(mktemp /tmp/cite-inline.XXXXXX)";
+        VERBOSE=$verbose KEEP_CITE_LINE=$keep_cite_line perl $perl_flags -p -e '
 BEGIN{
   undef $/;
   @flags=();
@@ -125,17 +129,28 @@ BEGIN{
 s[^\n?((\s*)//\$ cite ([^\\\n]*)(\\\s*//(.*)$)?)$(\s*/\*\s*Original code Copyright[^\*]+\*/\s*$)?\n?]{
   #my $cmd = "cite $quoted_flags -p \"$2\" -u \"$3\"\n";
   my $cmd = "cite -p \"$2\" $3 $5 $quoted_flags";
-  print STDERR "$cmd\n";
+  print STDERR "$cmd\n" if $ENV{"VERBOSE"};
   my $citation = `$cmd`;
-  die if $? != 0;
-if ($citation !~ /^\s*$/) {
-  "$1\n$citation";
+  die "$citation" if $? != 0;
+if ($ENV{"KEEP_CITE_LINE"} || $citation !~ /^\s*$/) {
+  if ($ENV{"KEEP_CITE_LINE"} ) {
+  # This will keep the cite line:
+    "$1\n$citation";
+  } else {
+  # This will remove the cite line:
+    "$citation";
+  }
 } else {
   "\n";
 }
-}mge' \
+}mge;' \
         -- ${flags[@]+"${flags[@]}"} -- "$@"; # args
              # https://stackoverflow.com/a/7577209/6454690
+        # if [ $? -eq 0 ]; then
+        #     if [ $dryrun -eq 1 ]; then
+        #         cat $tmpfile;
+        #     else
+        #         cp $tmpfile 
         ;;
     "remove")
         flags="-i";
