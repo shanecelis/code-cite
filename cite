@@ -173,7 +173,7 @@ function internal_error() {
     fi
 }
 
-if [ -z "${ROOT_PID+}" ]; then
+if [ -z "${ROOT_PID-}" ]; then
     export ROOT_PID=$$;
     trap "display_warnings $ROOT_PID " EXIT
 fi
