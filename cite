@@ -15,7 +15,6 @@
 #
 # Dependencies: bash, curl, jq, mo, and perl
 
-
 set -ueE -o pipefail;
 if ! bin_path=$(readlink "$0"); then
     bin_path="$0";
@@ -250,11 +249,18 @@ elif [ "${#applicable_backends[@]}" -eq 0 ]; then
     echo "warning: no backends worked." >&2;
 fi
 
-if cat "$config_file" | jq -e ".contributors.${author_name}" > /dev/null; then
+if cat "$config_file" | jq -e ".contributors.${author_name/ /}" > /dev/null; then
     if [ -z "${author_link-}" ]; then
         author_link=$(cat "$config_file" | jq -r ".contributors.${author_name}.link");
     fi
     author_name=$(cat "$config_file" | jq -r ".contributors.${author_name}.name");
+fi
+
+if [ -n "$modifier_name" ] && cat "$config_file" | jq -e ".contributors.${modifier_name/ /}" > /dev/null; then
+    if [ -z "${modifier_link-}" ]; then
+        modifier_link=$(cat "$config_file" | jq -r ".contributors.${modifier_name}.link");
+    fi
+    modifier_name=$(cat "$config_file" | jq -r ".contributors.${modifier_name}.name");
 fi
 
 if [ -z "$license_name" ]; then
