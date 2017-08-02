@@ -18,6 +18,16 @@ if [ "$1" == "ignoreopts" ]; then
     ignoreopts="$2";
     shift 2;
     OPTERR=0;
+elif [ "$1" == "info" ]; then
+   cat <<EOF
+{
+  "getopts" : "u:s:",
+  "usage_flags" : "",
+  "usage_params" : "[-s twitter-screenname]",
+  "usage" : " -s      Twitter screenname."
+}
+EOF
+   exit 0;
 fi
 while getopts "hu:s:$ignoreopts" arg; do
     case "$arg" in

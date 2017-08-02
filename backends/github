@@ -17,6 +17,16 @@ if [ "$1" == "ignoreopts" ]; then
     ignoreopts="$2";
     shift 2;
     OPTERR=0;
+elif [ "$1" == "info" ]; then
+    cat <<EOF
+{
+  "getopts" : "g:",
+  "usage_flags" : "",
+  "usage_params" : "[-g gist-id]",
+  "usage" : ""
+}
+EOF
+    exit 0;
 fi
 while getopts "hu:g:$ignoreopts" arg; do
     case "$arg" in
@@ -81,9 +91,17 @@ if [ -z "$author_name" ]; then
     author_name="$github_user";
 fi
 author_link="$(echo $user_json | jq -r '.html_url')"
-cat <<EOF
-author_name="$author_name"
-author_link="$author_link"
-year_created="$year_created"
-url="$url"
-EOF
+export_vars() {
+    for var in "$@"; do
+        if [ -n "${!var}" ]; then
+            echo "$var=\"${!var}\"";
+        fi
+    done
+}
+export_vars author_name author_link year_created url
+# cat <<EOF
+# author_name="$author_name"
+# author_link="$author_link"
+# year_created="$year_created"
+# url="$url"
+# EOF

@@ -120,6 +120,16 @@ if [ "$1" == "ignoreopts" ]; then
     ignoreopts="$2";
     shift 2;
     OPTERR=0;
+elif [ "$1" == "info" ]; then
+    cat <<EOF
+{
+  "getopts" : "q:a:C",
+  "usage_flags" : "C",
+  "usage_params" : "[-q question-id] [-a answer-id]",
+  "usage" : " -C      Do not use a cache. (StackExchange may throttle you if you don't.)"
+}
+EOF
+    exit 0;
 fi
 while getopts "W:hvCq:a:u:$ignoreopts" arg; do
     case "$arg" in
@@ -223,5 +233,5 @@ question_id="$question_id"
 author_name="$author_name"
 author_link="$author_link"
 year_created="$year_created"
-license="ccbysa"
+license="\${license:-ccbysa}"
 EOF
