@@ -41,10 +41,15 @@
 # 3. Remove citations from a file.
 #
 # Dependencies: bash, curl, jq, mo, and perl
-
+set -ueE -o pipefail;
 if ! bin_path=$(readlink "$0"); then
     bin_path="$0";
 fi
+tracing=0;
+if [[ $- =~ x ]]; then
+    tracing=1;
+fi
+
 bin_dir=$(dirname "$bin_path");
 
 code_cite_link="https://github.com/shanecelis/code-cite"
@@ -52,13 +57,17 @@ code_cite_link="https://github.com/shanecelis/code-cite"
 client_id="10102";
 client_key="nvTB2XGxj5eWuyeMCmJTJA((";
 
+set +x;
+set +e;
 source "$HOME/bin/mo";          # XXX This should be packed with code-cite.
+set -e;
+if [[ $tracing -eq 1 ]]; then set -x; fi
 template_dir="$bin_dir/templates/";
 template="stackoverflow";
 year_modified=2016
 modifier_name="Shane Celis"
 modifier_link="https://twitter.com/shanecelis"
-license="none"
+license=""
 license_name=""
 license_link=""
 note=""
@@ -75,21 +84,19 @@ ref_link() {
 }
 
 usage() {
-    echo "usage: cite [-hvimMTL] [-n modifier-name] [-U modifier-link] [-y year-modified] [-p prefix]" >&2;
-    echo "            [-l license] [-N notes] [-a author-name] [-A author-link]" >&2;
-    echo "            [-c config] [-t template] [-W pid] [-e eval-string]" >&2;
-    echo "            <-u url | -q question-id | -a answer-id>" >&2;
-    echo " -h      Show usage." >&2;
-    echo " -v      Be verbose." >&2;
-    echo " -c      Use this config file." >&2;
-    echo " -m      Mark this code as modified." >&2;
-    echo " -M      Mark this code as not modified." >&2;
-    echo " -N      Make note of something in copyright message. " >&2;
-    echo " -n      Who modified this code?" >&2;
-    echo " -y      What year was it modified?" >&2;
-    echo " -T      List templates" >&2;
-    echo " -p      Prefix each line of template with 'prefix', mainly used for alignment." >&2;
-    echo " -i      Interactive. Ask user if not specified." >&2;
+    echo "usage: cite [-hvmMTL] [-u code-url]";
+    echo "            [-X author-name]   [-Y year-created]  [-Z author-link]";
+    echo "            [-x modifier-name] [-y year-modified] [-z modifier-link]";
+    echo "            [-l license] [-N notes] [-p prefix]";
+    echo "            [-c config.json] [-t template] [-W pid] [-e eval-string]";
+    echo " -h      Show usage.";
+    echo " -v      Be verbose.";
+    echo " -m      Mark this code as modified.";
+    echo " -M      Mark this code as not modified.";
+    echo " -N      Make note of something in the message. ";
+    echo " -T      List templates";
+    echo " -L      List licenses";
+    echo " -p      Prefix each line of template with 'prefix', mainly used for alignment.";
 }
 # https://stackoverflow.com/a/17841619/6454690
 function join_by { local IFS="$1"; shift; echo "$*"; }
@@ -105,10 +112,10 @@ display_cache_warning() {
             echo "info: Used cache for keys: $(cat $keys_used_path | sort | uniq | tr '\n' ',')" >&2;
         else
             count=$(cat $keys_used_path | sort | uniq | wc -l | xargs); # xargs is working like trim
-            echo "warning: Used cache for $count stackexchange API requests." >&2;
+            echo "info: Used cache for $count stackexchange API requests." >&2;
         fi
         rm "$keys_used_path";
-        return 1;
+        return 0;
     fi
     return 0;
 }
@@ -124,7 +131,7 @@ display_answer_warning() {
             echo "warning: Answer not specified for $count questions." >&2;
         fi
         rm "$no_answer_path";
-        return 1;
+        return 0;
     fi
     return 0;
 }
@@ -160,37 +167,50 @@ display_warnings() {
     return $err;
 }
 
-if [ -z "$ROOT_PID" ]; then
+function internal_error() {
+    if [ $1 -ne 0 ] && [ $running_backend -ne 1 ]; then
+        echo "error: internal script error at ${2}:${3} $4" >&2;
+    fi
+}
+
+if [ -z "${ROOT_PID+}" ]; then
     export ROOT_PID=$$;
-    trap "display_warnings $ROOT_PID" EXIT
+    trap "display_warnings $ROOT_PID " EXIT
 fi
 # trap 'rc=$?; echo "ERR at line ${LINENO} (rc: $rc)"; exit $rc' ERR
 # trap 'rc=$?; echo "EXIT (rc: $rc)"; exit $rc' EXIT
 #set -ueE -o pipefail;
-set -eE -o pipefail;
-trap '[ $? -ne 0 ] && echo "error: internal script error at line ${LINENO}."' ERR
-dryrun=0;
+# trap '[ $? -ne 0 ] && echo "error: internal script exit at line ${LINENO}." >&2' EXIT
+# trap '[ $? -ne 0 ] && echo "error: internal script error at line ${LINENO}." >&2' ERR
+# trap 'internal_error $? $LINENO' EXIT
+trap 'internal_error $? $BASH_SOURCE $BASH_LINENO "${LASTERR-}"' ERR
+running_backend=0;
 verbose=0;
-# By default let's use the cache.
-use_cache=1;
-interactive=0;
-modified=2;                     # 2 means it's not clear which
-# modifier_name="";
-# modifier_link="";
-# year_modified="";
+modified=0;                     # 2 means it's not clear which
 prefix="";
-question_id="";
-answer_id="";
 url="";
-config_file="$bin_dir/config.json";
-stackexchange_site="stackoverflow";
-opts="a:A:U:LN:e:W:Tin:Chvmp:Mq:a:l:y:u:t:g:";
+config_file="$bin_dir/cite-config.json";
+stackoverflow_opts="q:a:"
+twitter_opts="s:"
+github_opts="g:"
+opts="hvmMTLu:
+X:Y:Z:
+x:y:z:
+l:N:p:
+c:t:W:e:
+${stackoverflow_opts}
+${twitter_opts}
+${github_opts}";
 while getopts "$opts" arg; do
     case "$arg" in
         h) usage;
            exit 0;;
-        n) modifier_name="$OPTARG";;
-        U) modifier_link="$OPTARG";;
+        X) author_name="$OPTARG";;
+        Y) year_created="$OPTARG";;
+        Z) author_link="$OPTARG";;
+        x) modifier_name="$OPTARG";;
+        y) year_modified="$OPTARG";;
+        z) modifier_link="$OPTARG";;
         N) note="$OPTARG";;
         l) license="$OPTARG";;
         L) echo "Licenses available from $bin_dir/licenses.json: ";
@@ -198,22 +218,14 @@ while getopts "$opts" arg; do
            exit 0;;
         m) modified=1;;
         M) modified=0;;
-        a) author_name="$OPTARG";;
-        A) author_link="$OPTARG";;
-        y) year_modified="$OPTARG";;
-        i) interactive=1;;
         v) verbose=1;;
-        # n) dryrun=1;;
-        C) use_cache=0;;
         p) prefix="$OPTARG";;
         c) config_file="$OPTARG";
            if ! [ -f "$config_file" ]; then
                echo "error: no config file found '$config_file'." >&2;
                exit 7;
            fi;;
-        q) question_id="$OPTARG";;
         e) eval "$OPTARG";;
-        a) answer_id="$OPTARG";;
         u) url="$OPTARG";;
         t) template="$OPTARG";;
         W) display_warnings $OPTARG;
@@ -221,19 +233,34 @@ while getopts "$opts" arg; do
         T) echo "Templates available from $template_dir: ";
            (cd $template_dir; echo * | tr ' ' '\n');
            exit 0;;
-        \?) usage;
+        \?) usage >&2;
            exit 2;;
         *) # Let this pass thru. It may be options to our backends.
            :;;
     esac
 done
+# Let's keep the arguments around.
 #shift $((OPTIND-1))
 declare -a applicable_backends=()
 for backend in $bin_dir/backends/*; do
-    if output="$($backend ignoreopts "$opts" "$@" 2>/dev/null)"; then
+    backend_err=0;
+    running_backend=1;
+    if [ $verbose -eq 1 ]; then
+        if ! output="$($backend ignoreopts "$opts" "$@")"; then
+            backend_err=1;
+        fi
+    else
+        if ! output="$($backend ignoreopts "$opts" "$@" 2>/dev/null)"; then
+            backend_err=1;
+        fi
+    fi
+    running_backend=0;
+    if [ $backend_err -eq 0 ]; then
         applicable_backends+=( $(basename "$backend") );
         if [ $verbose -eq 1 ]; then
             echo "info: using $(basename $backend) as backend." >&2;
+            echo "backend output:" >&2;
+            echo "$output" >&2;
         fi
         eval "$output";
         # break;
@@ -244,68 +271,44 @@ if [ "${#applicable_backends[@]}" -gt 1 ]; then
     for b in "${applicable_backends[@]}"; do
         echo $b >&2;
     done
+elif [ "${#applicable_backends[@]}" -eq 0 ]; then
+    echo "warning: no backends worked." >&2;
 fi
 
 if [ -z "$license_name" ]; then
-    license_name=$(cat "$config_file" | jq -r ".licenses.$license.name");
+    license_name=$(cat "$config_file" | jq -r ".licenses.${license:-none}.name");
 fi
 if [ -z "$license_link" ]; then
-    license_link=$(cat "$config_file" | jq -r ".licenses.$license.link");
+    license_link=$(cat "$config_file" | jq -r ".licenses.${license:-none}.link");
 fi
 
 if [ $modified -eq 2 ]; then
-    if [ $interactive -eq 1 ]; then
-        read -p "Did you modify the code? [Y/n]" -n 1 -r
-        echo
-        if [[ "$REPLY" =~ ^[Yy]$ ]]; then
-            modified=1;
-        else
-            modified=0;
-        fi
-    else
-        # echo "warning: assuming the code has not been modified." >&2;
-        modified_path=/tmp/cite-stackoverflow/modified.$ROOT_PID;
-        echo "$(basename $0) $*" >> "$modified_path";
-        modified=0;
-    fi
+    # echo "warning: assuming the code has not been modified." >&2;
+    modified_path=/tmp/cite-stackoverflow/modified.$ROOT_PID;
+    echo "$(basename $0) $*" >> "$modified_path";
+    modified=0;
 fi
 
 if [ $modified -eq 1 ]; then
     if [ -z "$modifier_name" ]; then
-        if [ $interactive -eq 1 ]; then
-            # Ask for modifier's name.
-            read -p "Modifier's name: " modifier_name;
-            # Might be nice to show the git contributor names:
-            # git log --pretty="%an" | sort | uniq
-        else
-            echo "error: no modifier_name given. Either use -n or -i." >&2;
-            usage;
-            exit 5;
-        fi
+        echo "error: no modifier_name given.  Use -n." >&2;
+        usage >&2;
+        exit 5;
     fi
     if [ -z "$modifier_link" ]; then
-        if [ $interactive -eq 1 ]; then
-            # Ask for modifier's link.
-            read -p "Link or email to modifier: " modifier_link
-            # Might be nice to show the git contributor emails:
-            # git log --pretty="%ae" | sort | uniq
-        else
-            echo "error: no modifier_link given. Either use -l or -i." >&2;
-            usage;
-            exit 6;
-        fi
+        echo "error: no modifier_link given.  Use -U." >&2;
+        usage >&2;
+        exit 6;
     fi
     if [ -z "$year_modified" ]; then
-        if [ $interactive -eq 1 ]; then
-            read -p "Year modified: " year_modified
-        else
-            echo "error: no year_modified given. Either use -y or -i." >&2;
-            usage;
-            exit 6;
-        fi
+        echo "error: no year_modified given.  Use -y." >&2;
+        usage >&2;
+        exit 6;
     fi
 else
     modifier_name="";
+    modifier_link="";
+    year_modified="";
 fi
 # Add prefix (usually whitespace), but don't add it if the line is blank.
 #prefix_length=$(echo -n "$prefix" | wc -c)
@@ -314,7 +317,20 @@ fi
 # 2. It'd fold without adding enough spaces to have the text flush.
 #mo "$template" | fold -sw $((80 - prefix_length)) | perl -pe "s/^(?=\s*\S)/$prefix/g;";
 if [ -f "$template_dir/$template" ]; then
-    mo --fail-not-set "$template_dir/$template" | perl -pe "s/^(?=\s*\S)/$prefix/g;";
+    set +xueE;
+    if ! mo --fail-not-set "$template_dir/$template" | perl -pe "s/^(?=\s*\S)/$prefix/g;"; then
+        set -ueE;
+        if [[ $tracing -eq 1 ]]; then set -x; fi
+        echo "error: running template." >&2;
+        #cat "$template_dir/$template" >&2;
+        :
+        exit 1;
+    else
+        set -ueE;
+        if [[ $tracing -eq 1 ]]; then set -x; fi
+        exit 0;
+    fi
+
 else
     echo "error: no template $template_dir/$template" >&2;
     exit 9;
