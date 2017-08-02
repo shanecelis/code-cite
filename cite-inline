@@ -1,46 +1,7 @@
 #!/bin/bash
 # cite-inline
 #
-# Generate a citation for code used from stackoverflow.
-#
-# Example
-# -------
-#
-# 1. Generate a citation.
-#
-# //$ cite -m -u http://stackoverflow.com/questions/3151702/discriminated-union-in-c-sharp
-# /*
-#    Original code Copyright (c) 2011 cdiggins[1]
-#    Modified code Copyright (c) 2016 Shane Celis, @shanecelis[2]
-#
-#    Licensed under the CC-BY-SA 3.0[3]
-#
-#    Original code posted to this question[4] and answer[5] from
-#    stackoverflow.com where user contributions are licensed under
-#    CC-BY-SA 3.0 with attribution required.
-#
-#    [1]: https://stackoverflow.com/users/184528/cdiggins
-#    [2]: https://twitter.com/shanecelis
-#    [3]: http://creativecommons.org/licenses/by-sa/3.0/
-#    [4]: http://stackoverflow.com/questions/3151702/discriminated-union-in-c-sharp
-#    [5]: http://stackoverflow.com/a/7302957/6454690
-#  */
-#
-# 2. Add citations to a file.
-#
-# If the file LinqExtensions has lines that look like this:
-#
-#     // http://stackoverflow.com/questions/3151702/discriminated-union-in-c-sharp
-#
-# A citation will be inserted after that line by running the following command:
-#
-# $ cite-stackoverflow add-citations LinqExtensions.cs
-# warning: Answer not specified for 5 questions; assuming first answer was used.
-# warning: Used cache for 15 stackexchange API requests.
-#
-# 3. Remove citations from a file.
-#
-# Dependencies: bash, curl, jq, and perl
+# Substitute inline citations in a file.
 
 usage() {
     echo "usage: cite-inline [-hnvk] " >&2;
