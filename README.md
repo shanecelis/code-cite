@@ -77,11 +77,10 @@ For the example shown above the `stackoverflow` backend emits:
     
 This output is then sourced by the `cite` command.
 
-
 Templates
 ----------
 
-[Moustache](https://mustache.github.io) templates are used to generate the citation. Here is a simple one:
+[Moustache](https://mustache.github.io) templates are used to generate the citations.  Here is a simple one:
 
     /* 
       Original code Copyright (c) {{year_created}} {{author_name}}[{{inline_link}}]
@@ -108,3 +107,8 @@ Dependencies
 - [jq](https://stedolan.github.io/jq/)
 - [mo](https://github.com/tests-always-included/mo)
 - [perl](https://www.perl.org)
+
+License
+--------
+
+This code is licensed under the [MIT License](https://opensource.org/licenses/MIT).
