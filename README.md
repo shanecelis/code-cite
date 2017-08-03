@@ -105,7 +105,7 @@ Dependencies
 - [bash](https://www.gnu.org/software/bash/)
 - [curl](https://curl.haxx.se)
 - [jq](https://stedolan.github.io/jq/)
-- [mo](https://github.com/tests-always-included/mo)
+- [mo](https://github.com/shanecelis/mo) (a few commits ahead of its [parent](https://github.com/tests-always-included/mo))
 - [perl](https://www.perl.org)
 
 License
