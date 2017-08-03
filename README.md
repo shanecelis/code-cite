@@ -43,15 +43,16 @@ Generate a citation from the command line.
 
 2. Add citations to a file.
 
-If the a file `Union.cs` has lines that look like this:
+If a file `Union.cs` has lines that look like this:
 
     //$ cite -u http://stackoverflow.com/questions/3151702/discriminated-union-in-c-sharp
+    public class Union<A, B, C> { ... }
 
-The citation will substitute that line by running the following command:
+The command `cite-inline` will substitute that line with `cite`'s output above.
 
     $ cite-inline add Union.cs
-    warning: Answer not specified for 5 questions; assuming first answer was used.
-    warning: Used cache for 15 stackexchange API requests.
+    
+A backup file `Union.cs.bak` will contain the original file.
 
 Backends
 ---------
