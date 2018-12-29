@@ -51,8 +51,11 @@ if [ -z "$url" ] && [ -z "$gist_id" ]; then
     usage >&2;
     exit 1;
 fi
-user=shanecelis
-token=0a8c10e5182422658374881ac9a4c2ad8d02e045
+if [ -f "$HOME/.code-cite" ]; then
+    source "$HOME/.code-cite";
+fi
+user="$github_user";
+token="$github_token";
 if [ -n "$url" ]; then
     if ! [[ "$url" =~ github\.com ]]; then
         echo "error: URL not for github." >&2;
