@@ -46,6 +46,10 @@ license_name=""
 license_link=""
 note=""
 
+if [ -f "$HOME/.code-cite" ]; then
+    source "$HOME/.code-cite";
+fi
+
 inline_link_count=0
 inline_link() {
     inline_link_count=$((inline_link_count + 1));
@@ -58,7 +62,7 @@ ref_link() {
 }
 
 usage() {
-    echo "usage: cite [-hvmMTL] [-u code-url]";
+    echo "usage: cite [-hvmMTLC] [-u code-url] [-U code-url-modified]";
     echo "            [-X author-name]   [-Y year-created]  [-Z author-link]";
     echo "            [-x modifier-name] [-y year-modified] [-z modifier-link]";
     echo "            [-l license] [-N notes] [-p prefix]";
@@ -67,7 +71,8 @@ usage() {
     echo " -v      Be verbose.";
     echo " -m      Mark this code as modified.";
     echo " -M      Mark this code as not modified.";
-    echo " -N      Make note of something in the message. ";
+    echo " -N      Make note of something in the message.";
+    echo " -C      Do not link to code-cite.";
     echo " -T      List templates";
     echo " -L      List licenses";
     echo " -p      Prefix each line of template with 'prefix', mainly used for alignment.";
@@ -167,7 +172,7 @@ config_file="$bin_dir/cite-config.json";
 stackoverflow_opts="q:a:"
 twitter_opts="s:"
 github_opts="g:"
-opts="hvmMTLu:
+opts="hvmMTLu:U:C
 X:Y:Z:
 x:y:z:
 l:N:p:
@@ -183,6 +188,7 @@ while getopts "$opts" arg; do
         Y) year_created="$OPTARG";;
         Z) author_link="$OPTARG";;
         x) modifier_name="$OPTARG";;
+        C) code_cite_link="";;
         y) year_modified="$OPTARG";;
         z) modifier_link="$OPTARG";;
         N) note="$OPTARG";;
@@ -201,6 +207,7 @@ while getopts "$opts" arg; do
            fi;;
         e) eval "$OPTARG";;
         u) url="$OPTARG";;
+        U) url_modified="$OPTARG";;
         t) template="$OPTARG";;
         W) display_warnings $OPTARG;
            exit $?;;
@@ -248,19 +255,22 @@ if [ "${#applicable_backends[@]}" -gt 1 ]; then
 elif [ "${#applicable_backends[@]}" -eq 0 ]; then
     echo "warning: no backends worked." >&2;
 fi
-
-if cat "$config_file" | jq -e ".contributors.${author_name/ /}" > /dev/null; then
+# the Json keywords cannot start with a digit.
+# if [[ "${author_name-}" =~ ^[0-9] ]]; then
+#     author_name="_$author_name";
+# fi
+if [ -n "${author_name-}" ] && cat "$config_file" | jq -e ".contributors[\"${author_name}\"]" > /dev/null; then
     if [ -z "${author_link-}" ]; then
-        author_link=$(cat "$config_file" | jq -r ".contributors.${author_name}.link");
+        author_link=$(cat "$config_file" | jq -r ".contributors[\"${author_name}\"].link");
     fi
-    author_name=$(cat "$config_file" | jq -r ".contributors.${author_name}.name");
+    author_name=$(cat "$config_file" | jq -r ".contributors[\"${author_name}\"].name");
 fi
 
-if [ -n "$modifier_name" ] && cat "$config_file" | jq -e ".contributors.${modifier_name/ /}" > /dev/null; then
+if [ -n "${modifier_name-}" ] && cat "$config_file" | jq -e ".contributors[\"${modifier_name}\"]" > /dev/null; then
     if [ -z "${modifier_link-}" ]; then
-        modifier_link=$(cat "$config_file" | jq -r ".contributors.${modifier_name}.link");
+        modifier_link=$(cat "$config_file" | jq -r ".contributors[\"${modifier_name}\"].link");
     fi
-    modifier_name=$(cat "$config_file" | jq -r ".contributors.${modifier_name}.name");
+    modifier_name=$(cat "$config_file" | jq -r ".contributors[\"${modifier_name}\"].name");
 fi
 
 if [ -z "$license_name" ]; then
