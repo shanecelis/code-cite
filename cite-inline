@@ -97,7 +97,8 @@ BEGIN{
 #  print STDERR "flags = ", join(",",@flags), "\n";
   $quoted_flags = join(" ",map(qq("$_"),@flags));
 }
-s[^\n?((\s*)//\$ cite ([^\\\n]*)(\\\s*//(.*)$)?)$(\s*/\*\s*Original code Copyright[^\*]+\*/\s*$)?\n?]{
+# This EF BB BF is Unicode BOM junk.
+s[^(?:\x{EF}\x{BB}\x{BF})?\n?((\s*)//\$ cite ([^\\\n]*)(\\\s*//(.*)$)?)$(\s*/\*\s*Original code Copyright[^\*]+\*/\s*$)?\n?]{
   #my $cmd = "cite $quoted_flags -p \"$2\" -u \"$3\"\n";
   my $cmd = "cite -p \"$2\" $3 $5 $quoted_flags";
   print STDERR "$cmd\n" if $ENV{"VERBOSE"};

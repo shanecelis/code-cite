@@ -288,13 +288,18 @@ if [ $modified -eq 2 ]; then
 fi
 
 if [ $modified -eq 1 ]; then
+
+    if [ -z "${url_modified:-}" ]; then
+        echo "warning: no url_modified given.  Use -U." >&2;
+        #exit 6;
+    fi
     if [ -z "$modifier_name" ]; then
-        echo "error: no modifier_name given.  Use -n." >&2;
+        echo "error: no modifier_name given.  Use -x." >&2;
         usage >&2;
         exit 5;
     fi
     if [ -z "$modifier_link" ]; then
-        echo "error: no modifier_link given.  Use -U." >&2;
+        echo "error: no modifier_link given.  Use -z." >&2;
         usage >&2;
         exit 6;
     fi
