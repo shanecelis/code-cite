@@ -131,7 +131,7 @@ elif [ "$1" == "info" ]; then
 EOF
     exit 0;
 fi
-while getopts "W:hvCq:a:u:$ignoreopts" arg; do
+while getopts "W:hvCq:a:u:S:$ignoreopts" arg; do
     case "$arg" in
         h) usage;
            exit 0;;
@@ -139,6 +139,7 @@ while getopts "W:hvCq:a:u:$ignoreopts" arg; do
         C) use_cache=0;;
         q) question_id="$OPTARG";;
         a) answer_id="$OPTARG";;
+        S) stackexchange_site="$OPTARG";;
         W) display_warnings $OPTARG;
            exit $?;;
         u) url="$OPTARG";;
