@@ -6,7 +6,11 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+async-trait = "0.1.64"
 clap = { version = "4.1.1", features = ["derive"] }
 handlebars = { version = "4.3.6", features = ["dir_source"] }
+reqwest = "0.11.14"
+rot13 = "0.1.1"
 serde = { version = "1.0.152", features = ["derive"] }
 serde_json = "1.0.91"
+twitter-v2 = "0.1.8"
